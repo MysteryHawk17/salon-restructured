@@ -39,7 +39,7 @@ const createAppointment = asynchandler(async (req, res) => {
     if (!findClient) {
         return response.notFoundError(res, "Cannot find the client. Please register");
     }
-
+    console.log("hehehehheheh111");
     const newAppointment = new appointmentDB({
         clientName,
         clientNumber,
@@ -59,17 +59,22 @@ const createAppointment = asynchandler(async (req, res) => {
         branchDetails
     })
     const savedAppointment = await newAppointment.save();
+    console.log("hehehehheheh222");
     if (!savedAppointment) {
         return response.internalServerError(res, 'Failed to create the appointment');
     }
-    findClient.appointmentDetails.push(savedAppointment._id);
-    await findClient.save();
+    console.log("hehehehheheh333");
     const updateStaff = await staffDB.findByIdAndUpdate({ _id: serviceProvider }, {
         $push: { appointments: savedAppointment._id }
     })
     if (!updateStaff) {
         return response.internalServerError(res, 'Created appointment but failed to update the staff')
     }
+    console.log("hehehehheheh444");
+    const newArray=[...findClient.appointmentDetails,savedAppointment._id];
+    findClient.appointmentDetails=newArray;
+    await findClient.save();
+    console.log("hehehehheheh555");
     response.successResponse(res, savedAppointment, 'Successfully created the appointments')
 })
 

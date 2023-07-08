@@ -1,16 +1,17 @@
 const billingDB = require("../models/billingModel.js")
 const clientDB = require("../models/clientModel.js");
-const staffDB=require("../models/staffModel")
+const staffDB = require("../models/staffModel")
 const serviceDB = require("../models/servicesModel.js")
 const asynchandler = require("express-async-handler");
 const response = require("../middlewares/responseMiddleware");
+const { default: mongoose } = require("mongoose");
 
 
 const test = asynchandler(async (req, res) => {
     response.successResponse(res, '', 'Billing routes established');
 })
 
-    const createBill = asynchandler(async (req, res) => {
+const createBill = asynchandler(async (req, res) => {
     const { clientName, clientNumber, timeOfBilling, price, billStatus, paymentDetails, serviceProvider, serviceFor, serviceSelected, durationOfAppointment, appointmentStatus, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails } = req.body;
 
     if (!clientName || !clientNumber || !timeOfBilling || !price || !billStatus || !serviceProvider || !serviceFor || !serviceSelected || !durationOfAppointment || !appointmentStatus || !giveRewardPoints || subTotal === undefined || subTotal === null || discount === undefined || discount === null || totalAmount === undefined || totalAmount === null || paidDues === undefined || paidDues === null || advancedGiven === undefined || advancedGiven == null || !branchDetails) {
@@ -20,7 +21,6 @@ const test = asynchandler(async (req, res) => {
     const findClient = await clientDB.findOne({ clientNumber: clientNumber });
 
     if (findClient) {
-
 
         const newBill = new billingDB({
             clientName,
@@ -43,8 +43,18 @@ const test = asynchandler(async (req, res) => {
             branchDetails
         })
         const savedBill = await newBill.save();
+        const findService = await serviceDB.findById({ _id: serviceSelected });
+        const findStaff = await staffDB.findById({ _id: serviceProvider });
         if (savedBill) {
-            const findClient=await clientDB.findOne({clientNumber:clientNumber})
+            if (billStatus == "PAID") {
+                if (giveRewardPoints) {
+                    findClient.rewardPointsEarned = findClient.rewardPointsEarned + findService.rewardPoints;
+                    await findClient.save();
+                }
+                findStaff.incentive = findService.staffIncentive + findStaff.incentive;
+                await findStaff.save();
+            }
+
             response.successResponse(res, savedBill, 'Saved bill successfully');
         }
         else {
@@ -59,7 +69,7 @@ const test = asynchandler(async (req, res) => {
 const getAllBills = asynchandler(async (req, res) => {
 
 
-    const allData = await billingDB.find(queryObj).populate("serviceProvider").populate("serviceSelected").populate("branchDetails");
+    const allData = await billingDB.find().populate("serviceProvider").populate("serviceSelected").populate("branchDetails");
     if (allData) {
         response.successResponse(res, allData, "Successfully fetched all the bills");
 
@@ -114,8 +124,38 @@ const getTotalSalesAmount = asynchandler(async (req, res) => {
 
 })
 
-const getTotalSalesAmountByBranch=asynchandler(async(req,res)=>{
-    
+const getTotalSalesAmountByBranch = asynchandler(async (req, res) => {
+    const { branchId } = req.params;
+    if (branchId == ":branchId") {
+        return response.validationError(res, 'Cannot find the data of the branch without its id');
+    }
+    const checkId=new mongoose.Types.ObjectId(branchId)
+    const result = await billingDB.aggregate([
+        {
+            $match: { billStatus: 'PAID', branchDetails: checkId }
+        },
+        {
+            $group: {
+                _id: branchId,
+                totalPaidAmounts: { $sum: '$totalAmount' }
+            }
+        }
+    ]);
+    console.log(result);
+    if (result) {
+        if (result.length > 0) {
+            const totalPaidAmounts = result[0].totalPaidAmounts;
+            console.log('Total Paid Amounts:', totalPaidAmounts);
+            response.successResponse(res, totalPaidAmounts, 'Successfully fetched the total sales');
+        } else {
+            console.log('No paid bills found.');
+            response.successResponse(res, 0, 'Successfully fetched the paid amounts');
+        }
+    }
+    else {
+        response.internalServerError(res, 'Cannot fetch the required data');
+    }
+
 })
 
 const updateBillDetails = asynchandler(async (req, res) => {
@@ -197,7 +237,6 @@ const updateBillStatus = asynchandler(async (req, res) => {
         const updateData = {};
         if (paymentDetails) {
             updateData.paymentDetails = paymentDetails;
-
         }
         if (paidDues) {
             updateData.paidDues = paidDues;
@@ -210,31 +249,30 @@ const updateBillStatus = asynchandler(async (req, res) => {
         if (giveRewardPoints) {
             updateData.giveRewardPoints = giveRewardPoints;
         }
+        const findStaff = await staffDB.findById({ _id: findBill.serviceProvider });
+        if (!findStaff) {
+            return response.notFoundError(res, 'Cannot find the Staff');
+        }
+        const findClient = await clientDB.findOne({ clientNumber: findBill.clientNumber });
+        if (!findClient) {
+            return response.notFoundError(res, 'Cannot find the client');
+        }
+        const findService = await serviceDB.findById({ _id: findBill.serviceSelected });
         const updatedBill = await billingDB.findByIdAndUpdate({ _id: billId }, updateData, { new: true });
         if (updatedBill) {
-            const findService = await serviceDB.findById({ _id: updatedBill.serviceSelected });
-            if (findService) {
-                if (updatedBill.giveRewardPoints && updatedBill.billStatus == 'PAID') {
-                    const client = await clientDB.findOne({ clientNumber: updatedBill.clientNumber });
-                    const finalRewardPoint = client.rewardPointsEarned + findService.rewardPoints;
-                    const updatedClient = await clientDB.findOneAndUpdate({ clientNumber: updatedBill.clientNumber }, { rewardPointsEarned: finalRewardPoint }, { new: true });
-                    if (updatedClient) {
-                        response.successResponse(res, updatedBill, 'Successfully updated  the bill');
-                    }
-                    else {
-                        response.successResponse(res, updatedBill, 'Updated the bill but cannot update the client');
-                    }
 
+            if (billStatus == "PAID") {
+                if (giveRewardPoints) {
+                    findClient.rewardPointsEarned = findClient.rewardPointsEarned + findService.rewardPoints;
+                    await findClient.save();
                 }
-                else {
-                    response.successResponse(res, updatedBill, "Updated the bill successfully");
-                }
+                findStaff.incentive = findService.staffIncentive + findStaff.incentive;
+                await findStaff.save();
 
             }
 
-            else {
-                response.internalServerError(res, 'Failed to fetch the service');
-            }
+            response.successResponse(res, updatedBill, 'Successfully updated the bills');
+
         }
 
         else {
@@ -265,24 +303,6 @@ const deleteBill = asynchandler(async (req, res) => {
         response.notFoundError(res, "Cannot find the specified bill");
     }
 })
-
-const searchBillAPI = asynchandler(async (req, res) => {
-    const { clientName, clientNumber } = req.query;
-    const queryObj = {};
-    if (clientName) {
-        queryObj.clientName = { $regex: clientName, $options: 'i' };
-    }
-    if (clientNumber) {
-        queryObj.clientNumber = clientNumber;
-    }
-    const findBill = await billingDB.find(queryObj).populate("serviceProvider").populate("serviceSelected").populate('branchDetails');
-    if (findBill) {
-        response.successResponse(res, findBill, 'Successfully fetched the data');
-    }
-    else {
-        response.internalServerError(res, 'Failed to fetch the datas');
-    }
-})
 const getBranchwiseBills = asynchandler(async (req, res) => {
     const { branchId } = req.params;
     if (branchId == ':branchId') {
@@ -299,4 +319,4 @@ const getBranchwiseBills = asynchandler(async (req, res) => {
         response.internalServerError(res, 'Error in fetching all the datas');
     }
 })
-module.exports = { test, createBill, getAllBills, getAClientBill, getTotalSalesAmount, updateBillStatus, updateBillDetails, deleteBill, searchBillAPI, getBranchwiseBills }; 
+module.exports = { test, createBill, getAllBills, getAClientBill, getTotalSalesAmount, updateBillStatus, updateBillDetails, deleteBill, getBranchwiseBills, getTotalSalesAmountByBranch }; 
