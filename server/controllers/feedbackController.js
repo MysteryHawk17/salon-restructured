@@ -7,15 +7,16 @@ const test = asynchandler(async (req, res) => {
     response.successResponse(res, '', 'Feedback routes established');
 })
 const createFeedback = asynchandler(async (req, res) => {
-    const { appointmentId, rating, description } = req.body;
-    if (!appointmentId || !rating) {
+    const { appointmentId, rating, description, branchDetails } = req.body;
+    if (!appointmentId || !rating || !branchDetails) {
         response.validationError(res, 'Post atleast the rating to post a feedback');
         return;
     }
     const newFeedback = new feedbackDB({
         appointmentId,
         rating,
-        description
+        description,
+        branchDetails
     })
     const savedFeedback = await newFeedback.save();
     if (savedFeedback) {
@@ -29,52 +30,21 @@ const createFeedback = asynchandler(async (req, res) => {
 })
 
 const getAllFeedbacks = asynchandler(async (req, res) => {
-    const { page, limit } = req.query;
-    if (!page && !limit) {
 
-        const allData = await feedbackDB.find().populate("appointmentId")
-        if (allData) {
-            response.successResponse(res, allData, "Successfully fetched all the data");
-
-        }
-        else {
-            response.internalServerError(res, 'Error in fetching all the data');
-        }
+    const { branchDetails } = req.query;
+    const queryObj = {};
+    if (branchDetails) {
+        queryObj.branchDetails = branchDetails;
     }
-    else if (!page) {
+    const allData = await feedbackDB.find(queryObj).populate("appointmentId")
+    if (allData) {
+        response.successResponse(res, allData, "Successfully fetched all the data");
 
-        const limitedResults = await feedbackDB.find().limit(limit).populate("appointmentId")
-        if (limitedResults) {
-            response.successResponse(res, limitedResults, 'Successfully fetched the results');
-        }
-        else {
-            response.internalServerError(res, 'Failed to fetch the responses');
-        }
     }
-    else if (page && limit) {
-
-        const allData = await feedbackDB.find().populate({
-            path: 'appointmentId',
-            populate: {
-                path: 'serviceSelected serviceProvider branchDetails',
-
-            }
-        })
-
-        if (allData) {
-            const startIndex = (page - 1) * limit;
-            const endIndex = page * limit;
-            const result = allData.slice(startIndex, endIndex);
-            const finalResult = {
-                result: result,
-                totalPage: Math.ceil(allData.length / limit)
-            }
-            response.successResponse(res, finalResult, 'Fetched the data succeessfully');
-        }
-        else {
-            response.internalServerError(res, 'Unable to fetch the data');
-        }
+    else {
+        response.internalServerError(res, 'Error in fetching all the data');
     }
+
 })
 
 
