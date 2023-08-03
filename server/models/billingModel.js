@@ -13,9 +13,9 @@ const billingSchema = mongoose.Schema({
     discount: {
         type: Number
     },
-    serviceProvider: {
+    appointmentId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Staff"
+        ref: "Appointment"
     },
     serviceFor: {
         type: String,
@@ -24,13 +24,6 @@ const billingSchema = mongoose.Schema({
     serviceSelected: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Service"
-    },
-    durationOfAppointment: {
-        type: Object,
-    },
-    appointmentStatus: {
-        type: String,
-        required: true,
     },
     timeOfBilling: {
         type: String
@@ -66,9 +59,9 @@ const billingSchema = mongoose.Schema({
     paymentDetails: {
         type: Object
     },
-    branchDetails:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"Branch"
+    branchDetails: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Branch"
     }
 }, { timestamps: true })
 
@@ -77,7 +70,7 @@ const billModel = mongoose.model("Bill", billingSchema);
 module.exports = billModel
 
 //manual bill updates
-//generate bill route ==>appointement se data adn baki jjo bhi required ho 
+//generate bill route ==>appointement se data adn baki jjo bhi required ho
 //get membership details and update membership details.
 
 //seperate format for bills of products and services|??

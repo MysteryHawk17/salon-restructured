@@ -10,13 +10,14 @@ const test = asynchandler(async (req, res) => {
     response.successResponse(res, '', 'Appointment routes established');
 })
 //create appointment
+
+//WE WILL NOT THE STAFF ID AT APPOINTMENT
 const createAppointment = asynchandler(async (req, res) => {
-    const { clientName, clientNumber, timeOfAppointment, dateOfAppointment, serviceProvider, serviceFor, serviceSelected, durationOfAppointment, appointmentStatus, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails } = req.body;
+    const { clientName, clientNumber, timeOfAppointment, dateOfAppointment, serviceFor, serviceSelected, durationOfAppointment, appointmentStatus, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails } = req.body;
     console.log(req.body);
     if (!clientName ||
         !clientNumber ||
         !timeOfAppointment ||
-        !serviceProvider ||
         !serviceFor ||
         !serviceSelected ||
         !durationOfAppointment ||
@@ -44,7 +45,6 @@ const createAppointment = asynchandler(async (req, res) => {
         clientName,
         clientNumber,
         timeOfAppointment,
-        serviceProvider,
         serviceFor,
         serviceSelected,
         durationOfAppointment,
@@ -63,16 +63,8 @@ const createAppointment = asynchandler(async (req, res) => {
     if (!savedAppointment) {
         return response.internalServerError(res, 'Failed to create the appointment');
     }
-    console.log("hehehehheheh333");
-    const updateStaff = await staffDB.findByIdAndUpdate({ _id: serviceProvider }, {
-        $push: { appointments: savedAppointment._id }
-    })
-    if (!updateStaff) {
-        return response.internalServerError(res, 'Created appointment but failed to update the staff')
-    }
-    console.log("hehehehheheh444");
-    const newArray=[...findClient.appointmentDetails,savedAppointment._id];
-    findClient.appointmentDetails=newArray;
+    const newArray = [...findClient.appointmentDetails, savedAppointment._id];
+    findClient.appointmentDetails = newArray;
     await findClient.save();
     console.log("hehehehheheh555");
     response.successResponse(res, savedAppointment, 'Successfully created the appointments')
@@ -156,7 +148,16 @@ const updateAppointmentStatus = asynchandler(async (req, res) => {
 
 //getallappointment
 const getAllAppointment = asynchandler(async (req, res) => {
-    const allData = await appointmentDB.find().populate("serviceProvider").populate("serviceSelected").populate("branchDetails");
+    //add query for completed appointment
+    const { status, isAssigned } = req.query;
+    const queryObj = {};
+    if (status) {
+        queryObj.appointmentStatus = status;
+    }
+    if (isAssigned == false || isAssigned == true) {
+        queryObj.isAssigned = isAssigned;
+    }
+    const allData = await appointmentDB.find(queryObj).populate("serviceProvider").populate("serviceSelected").populate("branchDetails");
     if (allData) {
         response.successResponse(res, allData, "Successfully fetched all the appointments");
 
@@ -166,7 +167,6 @@ const getAllAppointment = asynchandler(async (req, res) => {
     }
 
 })
-
 
 //getaappointment
 
@@ -235,8 +235,5 @@ const userAppointments = asynchandler(async (req, res) => {
     }
     response.successResponse(res, findAllAppointments, 'Successfully fetched the appointments');
 })
-
-
-
 
 module.exports = { test, createAppointment, updateAppointment, updateAppointmentStatus, getAllAppointment, getParticularAppointment, getBranchwiseAppointment, getStaffwiseAppointment, userAppointments };

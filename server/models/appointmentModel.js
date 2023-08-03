@@ -22,6 +22,10 @@ const appointmentSchema = mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Staff"
     },
+    isAssigned: {
+        type: Boolean,
+        default: false
+    },
     serviceFor: {
         type: String,
     },

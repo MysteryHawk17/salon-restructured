@@ -10,6 +10,7 @@ const test = asynchandler(async (req, res) => {
 
 //create client
 const createClient = asynchandler(async (req, res) => {
+    //SOURCE
     const { clientName, clientNumber, clientEmail, clientAddress, gender } = req.body;
     if (!clientName || !clientNumber || !clientEmail || !clientAddress || !gender) {
         return response.validationError(res, 'Cannot create a client without proper information');

@@ -1,4 +1,5 @@
 const staffDB = require("../models/staffModel");
+const appointmentDB = require("../models/appointmentModel");
 const branchDB = require("../models/branchModel");
 const asynchandler = require("express-async-handler");
 const response = require("../middlewares/responseMiddleware");
@@ -77,7 +78,12 @@ const getStaffsByBranch = asynchandler(async (req, res) => {
         return response.validationError(res, "Cannot get a branch without its id");
     }
 
-    const allData = await staffDB.find({ branchDetails: branchId }).populate("branchDetails");
+    const allData = await staffDB.find({ branchDetails: branchId }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });
     if (allData) {
         response.successResponse(res, allData, "Successfully fetched all the datas");
 
@@ -91,7 +97,12 @@ const getAStaff = asynchandler(async (req, res) => {
     if (!staffId) {
         return response.validationError(res, 'Cannot find staff without its id');
     }
-    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails");
+    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });
     if (findStaff) {
         response.successResponse(res, findStaff, 'Successfully fetched the data');
     }
@@ -105,14 +116,19 @@ const deleteStaff = asynchandler(async (req, res) => {
     if (!staffId) {
         return response.validationError(res, 'Cannot find staff without its id');
     }
-    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails");
+    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });
     if (findStaff) {
         const deleteFromCloud = await cloudinary.uploader.destroy(findStaff.idProof)
         const deleteFromCloud2 = await cloudinary.uploader.destroy(findStaff.displayImg);
         const deletedStaff = await staffDB.findByIdAndDelete({ _id: staffId });
         if (deletedStaff) {
-            const findBranch=await branchDB.findByIdAndUpdate({_id:findStaff.branchDetails._id},{
-                $pull:{staffs:deletedStaff._id}
+            const findBranch = await branchDB.findByIdAndUpdate({ _id: findStaff.branchDetails._id }, {
+                $pull: { staffs: deletedStaff._id }
             })
             response.successResponse(res, deletedStaff, 'Staff was delleted successfully');
         }
@@ -132,7 +148,12 @@ const updateStaff = asynchandler(async (req, res) => {
     if (!staffId) {
         return response.validationError(res, 'Cannot find staff without its id');
     }
-    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails");
+    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });
     if (findStaff) {
         const updateData = {};
         const { name, dob, phone, mail, workingHrs, salary, emergencyDetails, gender, dateOfJoining, userType, department } = req.body;
@@ -187,7 +208,12 @@ const updateProfilePic = asynchandler(async (req, res) => {
     if (!staffId) {
         return response.validationError(res, 'Cannot find staff without its id');
     }
-    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails");
+    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });
     if (findStaff) {
         if (req.files) {
             const deletePreviousData = await cloudinary.uploader.destroy(findStaff.displayImg);
@@ -213,7 +239,12 @@ const updateIdProof = asynchandler(async (req, res) => {
     if (!staffId) {
         return response.validationError(res, 'Cannot find staff without its id');
     }
-    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails");
+    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });
     if (findStaff) {
         if (req.files) {
             const deletePreviousData = await cloudinary.uploader.destroy(findStaff.idProof);
@@ -235,8 +266,84 @@ const updateIdProof = asynchandler(async (req, res) => {
     }
 })
 
-//ADD ROUTES FOR THE STAFF TO SEE ITS APPOINTMNETS
+//ADD ROUTES FOR THE STAFF TO SEE ITS APPOINTMNETS FOR APPROVAL AND REJECTION
+const assignAppointment = asynchandler(async (req, res) => {
+    const { appointmentId } = req.body;
+    const { staffId } = req.params;
+    if (!appointmentId || staffId == ":staffId") {
+        return response.validationError(res, 'Cannot assign appointment without the  details');
+    }
+    const findAppointment = await appointmentDB.findById({ appointmentId: appointmentId }).populate("serviceSelected").populate("branchDetails");;
+    if (!findAppointment) {
+        return response.notFoundError(res, 'Cannot find the appointment');
+    }
+    const findStaff = await staffDB.findById({ _id: staffId });
+    if (!findStaff) {
+        return response.notFoundError(res, "cannot find the staff");
+    }
+    findStaff.appointments.push(appointmentId);
+    findAppointment.serviceProvider = staffId;
+    findAppointment.isAssigned = true;
+    await findStaff.save();
+    await findAppointment.save();
+    response.successResponse(res, findAppointment, 'Successfully assigned the appointment');
+
+})
+
+//ATTENDANCE MARK 
+const attendance = asynchandler(async (req, res) => {
+    const { staffId } = req.params;
+    if (staffId == ":staffId") {
+        return response.validationError(res, "Cannot find a staff without its id");
+    }
+    const findStaff = await staffDB.findById({ _id: staffId }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });;
+    if (!findStaff) {
+        return response.notFoundError(res, "Cannot find the staff");
+    }
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0'); // January is 0!
+    const yyyy = today.getFullYear();
+    const currentDate = dd + '-' + mm + '-' + yyyy;
+    const index = findStaff.attendance.indexOf(currentDate);
+    if (index > -1) {
+        return response.errorResponse(res, "Attandace marked already", 402);
+    }
+    findStaff.attendance.push(currentDate);
+    const savedStaff = await findStaff.save();
+    if (!savedStaff) {
+        return response.internalServerError(res, 'Failed to mark attendance');
+    }
+    response.successResponse(res, savedStaff, 'Successfully marked the attendance');
+})
+
+//LOGIN STAFF 
+const loginStaff = asynchandler(async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return response.validationError(res, 'Cannot login without proper details');
+    }
+    const findStaff = await staffDB.findOne({ mail: email }).populate("branchDetails").populate({
+        path: "appointments",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    });;
+    if (!findStaff) {
+        return response.notFoundError(res, "Cannot find the staff");
+    }
+    if (findStaff.password == password) {
+        response.successResponse(res, findStaff, "Login successful");
+    }
+    else {
+        return response.errorResponse(res, 'Incorrect password', 402);
+    }
+})
 
 
-
-module.exports = { test, createStaff, getAStaff, updateIdProof, updateProfilePic, updateStaff, deleteStaff, getStaffsByBranch }
+module.exports = { test, createStaff, getAStaff, updateIdProof, updateProfilePic, updateStaff, deleteStaff, getStaffsByBranch, assignAppointment, attendance, loginStaff }

@@ -12,9 +12,10 @@ const test = asynchandler(async (req, res) => {
 })
 
 const createBill = asynchandler(async (req, res) => {
-    const { clientName, clientNumber, timeOfBilling, price, billStatus, paymentDetails, serviceProvider, serviceFor, serviceSelected, durationOfAppointment, appointmentStatus, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails } = req.body;
+    //duration and status service provider 
+    const { clientName, clientNumber, timeOfBilling, price, billStatus, paymentDetails, serviceFor, serviceSelected, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails, appointmentId } = req.body;
 
-    if (!clientName || !clientNumber || !timeOfBilling || !price || !billStatus || !serviceProvider || !serviceFor || !serviceSelected || !durationOfAppointment || !appointmentStatus || !giveRewardPoints || subTotal === undefined || subTotal === null || discount === undefined || discount === null || totalAmount === undefined || totalAmount === null || paidDues === undefined || paidDues === null || advancedGiven === undefined || advancedGiven == null || !branchDetails) {
+    if (!clientName || !clientNumber || !timeOfBilling || !price || !billStatus || !serviceFor || !serviceSelected || !giveRewardPoints || subTotal === undefined || subTotal === null || discount === undefined || discount === null || totalAmount === undefined || totalAmount === null || paidDues === undefined || paidDues === null || advancedGiven === undefined || advancedGiven == null || !branchDetails || !appointmentId) {
         response.validationError(res, 'Fill in all the details');
         return;
     }
@@ -29,18 +30,16 @@ const createBill = asynchandler(async (req, res) => {
             price,
             billStatus,
             paymentDetails,
-            serviceProvider,
             serviceFor,
             serviceSelected,
-            durationOfAppointment,
-            appointmentStatus,
             giveRewardPoints,
             subTotal,
             discount,
             totalAmount,
             paidDues,
             advancedGiven,
-            branchDetails
+            branchDetails,
+            appointmentId
         })
         const savedBill = await newBill.save();
         const findService = await serviceDB.findById({ _id: serviceSelected });
@@ -69,7 +68,12 @@ const createBill = asynchandler(async (req, res) => {
 const getAllBills = asynchandler(async (req, res) => {
 
 
-    const allData = await billingDB.find().populate("serviceProvider").populate("serviceSelected").populate("branchDetails");
+    const allData = await billingDB.find().populate({
+        path: "appointmentId",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    }).populate("serviceSelected").populate("branchDetails");
     if (allData) {
         response.successResponse(res, allData, "Successfully fetched all the bills");
 
@@ -85,7 +89,12 @@ const getAClientBill = asynchandler(async (req, res) => {
         response.validationError(res, 'Cannot get a clients bill without the number');
         return;
     }
-    const findAllBills = await billingDB.find({ clientNumber: clientNumber }).populate("serviceProvider").populate("serviceSelected").populate('branchDetails');
+    const findAllBills = await billingDB.find({ clientNumber: clientNumber }).populate({
+        path: "appointmentId",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    }).populate("serviceSelected").populate('branchDetails');
     if (findAllBills) {
         response.successResponse(res, findAllBills, 'Successfully fetched all the bills');
     }
@@ -129,7 +138,7 @@ const getTotalSalesAmountByBranch = asynchandler(async (req, res) => {
     if (branchId == ":branchId") {
         return response.validationError(res, 'Cannot find the data of the branch without its id');
     }
-    const checkId=new mongoose.Types.ObjectId(branchId)
+    const checkId = new mongoose.Types.ObjectId(branchId)
     const result = await billingDB.aggregate([
         {
             $match: { billStatus: 'PAID', branchDetails: checkId }
@@ -159,7 +168,7 @@ const getTotalSalesAmountByBranch = asynchandler(async (req, res) => {
 })
 
 const updateBillDetails = asynchandler(async (req, res) => {
-    const { quantity, timeOfBilling, price, serviceProvider, serviceFor, serviceSelected, durationOfAppointment, appointmentStatus, giveRewardPoints, subtotal, discount, totalAmount, paidDues, advancedGiven } = req.body;
+    const { quantity, timeOfBilling, price, serviceFor, serviceSelected,giveRewardPoints, subtotal, discount, totalAmount, paidDues, advancedGiven } = req.body;
     const { billId } = req.params;
     if (!billId) {
         return response.validationError(res, 'Please enter all the fields');
@@ -175,9 +184,6 @@ const updateBillDetails = asynchandler(async (req, res) => {
         }
         if (price) {
             updateData.price = price;
-        }
-        if (serviceProvider) {
-            updateData.serviceProvider = serviceProvider;
         }
         if (serviceFor) {
             updateData.serviceFor = serviceFor;
@@ -310,7 +316,12 @@ const getBranchwiseBills = asynchandler(async (req, res) => {
     }
 
 
-    const allData = await billingDB.find({ branchDetails: branchId }).populate("serviceProvider").populate("serviceSelected").populate("branchDetails");
+    const allData = await billingDB.find({ branchDetails: branchId }).populate({
+        path: "appointmentId",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    }).populate("serviceSelected").populate("branchDetails");
     if (allData) {
         response.successResponse(res, allData, "Successfully fetched all the datas");
 

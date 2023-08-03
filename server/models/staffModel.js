@@ -84,7 +84,11 @@ const staffSchema = mongoose.Schema({
     appointments: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Appointment"
-    }]
+    }],
+    attendance: {
+        type: [String],
+        default: []
+    }
 }, { timestamps: true })
 
 const staffModel = mongoose.model("Staff", staffSchema);
