@@ -1,5 +1,6 @@
 const serviceDB = require("../models/servicesModel");
 const branchDB = require("../models/branchModel");
+const categoryDB = require("../models/serviceCategoryModel");
 const response = require("../middlewares/responseMiddleware");
 const asynchandler = require("express-async-handler");
 
@@ -8,6 +9,73 @@ const test = asynchandler(async (req, res) => {
     response.successResponse(res, '', "Services routes established");
 })
 
+const createCategory = asynchandler(async (req, res) => {
+    const { name } = req.body;
+    if (!name) {
+        return response.validationError(res, "Cannot create a category without its name");
+    }
+    const newCategory = await categoryDB.create({
+        name: name
+    });
+    if (!newCategory) {
+        return response.internalServerError(res, "Failed to create category");
+    }
+    response.successResponse(res, newCategory, 'Created the category successfully');
+})
+const getAllCategory = asynchandler(async (req, res) => {
+    const allCategory = await categoryDB.find();
+    if (!allCategory) {
+        return response.internalServerError(res, 'Failed to fetch the categoryies');
+    }
+    response.successResponse(res, allCategory, 'Fetched the categories successfully');
+})
+const getACategory = asynchandler(async (req, res) => {
+    const { id } = req.params;
+    if (id == ":id") {
+        return response.validationError(res, "Cannot find the category without its id");
+    }
+    const findCategory = await categoryDB.findById({ _id: id });
+    if (!findCategory) {
+        return response.validationError(res, "Failed to find the category successfully");
+    }
+    response.successResponse(res, findCategory, 'Successfully find the category');
+})
+const updateCategory = asynchandler(async (req, res) => {
+    const { id } = req.params;
+    if (id == ":id") {
+        return response.validationError(res, "Cannot find the category without its id");
+    }
+    const findCategory = await categoryDB.findById({ _id: id });
+    if (!findCategory) {
+        return response.validationError(res, "Failed to find the category successfully");
+    }
+    const { name } = req.body;
+    if(name){
+
+        findCategory.name = name;
+    }
+    const savedCategory = await findCategory.save();
+    if (!savedCategory) {
+        return response.internalServerError(res, 'Cannot update category');
+    }
+    response.successResponse(res, savedCategory, "Updated the category");
+})
+
+const deleteCategory = asynchandler(async (req, res) => {
+    const { id } = req.params;
+    if (id == ":id") {
+        return response.validationError(res, "Cannot find the category without its id");
+    }
+    const findCategory = await categoryDB.findById({ _id: id });
+    if (!findCategory) {
+        return response.validationError(res, "Failed to find the category successfully");
+    }
+    const deletedCategory = await categoryDB.findByIdAndDelete({ _id: id });
+    if (!deletedCategory) {
+        return response.validationError(res, "Cannot delete the category");
+    }
+    response.successResponse(res, deletedCategory, 'Deleted the category successfully');
+})
 const createService = asynchandler(async (req, res) => {
     const { serviceName, category, duration, price, membershipPrice, rewardPoints, serviceFor, branchDetails, staffIncentive } = req.body;
     if (!serviceName || !category || !duration || !price || !membershipPrice || !rewardPoints || !serviceFor || !branchDetails || !staffIncentive) {
@@ -141,4 +209,4 @@ const updateService = asynchandler(async (req, res) => {
 })
 
 
-module.exports = { test, createService, updateService, deleteService, getAService, getAllServicesByBranch };
+module.exports = { test, createService, updateService, deleteService, getAService, getAllServicesByBranch ,createCategory,getAllCategory,getACategory,deleteCategory,updateCategory};

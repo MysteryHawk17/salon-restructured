@@ -9,8 +9,8 @@ const test = asynchandler(async (req, res) => {
 })
 
 const createProduct = asynchandler(async (req, res) => {
-    const { productName, mrp, volume, unit, barcode, rewardPoints, branchDetails } = req.body;
-    if (!productName || !mrp || !volume || !unit || !barcode || !rewardPoints || !branchDetails) {
+    const { productName, mrp, volume, unit, barcode, rewardPoints, branchDetails,staffIncentive } = req.body;
+    if (!productName || !mrp || !volume || !unit || !barcode || !rewardPoints||!staffIncentive || !branchDetails) {
         response.validationError(res, 'Please enter all the fields');
         return;
     }
@@ -25,6 +25,7 @@ const createProduct = asynchandler(async (req, res) => {
         unit,
         barcode,
         rewardPoints,
+        staffIncentive,
         branchDetails
     })
     const savedProduct = await newProduct.save();
@@ -99,7 +100,7 @@ const updateProduct = asynchandler(async (req, res) => {
     const findProduct = await productDB.findById({ _id: productId }).populate("branchDetails");
     if (findProduct) {
         const updateData = {};
-        const { productName, mrp, volume, unit, barcode, rewardPoints } = req.body;
+        const { productName, mrp, volume, unit, barcode, rewardPoints,staffIncentive } = req.body;
         if (productName) {
             updateData.productName = productName;
         }
@@ -117,6 +118,9 @@ const updateProduct = asynchandler(async (req, res) => {
         }
         if (rewardPoints) {
             updateData.rewardPoints = rewardPoints;
+        }
+        if (staffIncentive) {
+            updateData.staffIncentive = staffIncentive;
         }
         const updatedProduct = await productDB.findByIdAndUpdate({ _id: productId }, updateData, { new: true });
         if (updatedProduct) {

@@ -1,9 +1,9 @@
-const billingDB = require("../models/billingModel.js")
-const clientDB = require("../models/clientModel.js");
-const staffDB = require("../models/staffModel")
-const serviceDB = require("../models/servicesModel.js")
-const asynchandler = require("express-async-handler");
+const billingDB = require("../models/billingModel");
+const clientDB = require("../models/clientModel");
+const staffDB=require("../models/staffModel");
+const appointmentDB = require("../models/appointmentModel");
 const response = require("../middlewares/responseMiddleware");
+const asynchandler = require("express-async-handler");
 const { default: mongoose } = require("mongoose");
 
 
@@ -11,60 +11,80 @@ const test = asynchandler(async (req, res) => {
     response.successResponse(res, '', 'Billing routes established');
 })
 
+//create bill
 const createBill = asynchandler(async (req, res) => {
-    //duration and status service provider 
-    const { clientName, clientNumber, timeOfBilling, price, billStatus, paymentDetails, serviceFor, serviceSelected, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails, appointmentId } = req.body;
-
-    if (!clientName || !clientNumber || !timeOfBilling || !price || !billStatus || !serviceFor || !serviceSelected || !giveRewardPoints || subTotal === undefined || subTotal === null || discount === undefined || discount === null || totalAmount === undefined || totalAmount === null || paidDues === undefined || paidDues === null || advancedGiven === undefined || advancedGiven == null || !branchDetails || !appointmentId) {
-        response.validationError(res, 'Fill in all the details');
-        return;
+    const { billType, products, toGiveIncentive, clientName, clientNumber, discount, appointmentId, timeOfBilling, totalAmount, paidDues, advancedGiven, subTotal, giveRewardPoints, price, branchDetails,productIncentive } = req.body;
+    if (!billType || !clientName || clientNumber == undefined || clientNumber == null || !timeOfBilling || subTotal === undefined || subTotal === null || totalAmount === undefined || totalAmount === null || paidDues === undefined || paidDues === null || advancedGiven === undefined || advancedGiven == null || !branchDetails || price == undefined || price == null || !appointmentId) {
+        return response.validationError(res, "Failed to create a bill without proper details");
+    }
+    const findAppointment = await appointmentDB.findById({ _id: appointmentId }).populate("serviceSelected").populate("serviceProvider");
+    if (!findAppointment) {
+        return response.notFoundError(res, "Cannot find the appointment");
     }
     const findClient = await clientDB.findOne({ clientNumber: clientNumber });
-
-    if (findClient) {
-
-        const newBill = new billingDB({
-            clientName,
-            clientNumber,
-            timeOfBilling,
-            price,
-            billStatus,
-            paymentDetails,
-            serviceFor,
-            serviceSelected,
-            giveRewardPoints,
-            subTotal,
-            discount,
-            totalAmount,
-            paidDues,
-            advancedGiven,
-            branchDetails,
-            appointmentId
-        })
-        const savedBill = await newBill.save();
-        const findService = await serviceDB.findById({ _id: serviceSelected });
-        const findStaff = await staffDB.findById({ _id: serviceProvider });
-        if (savedBill) {
-            if (billStatus == "PAID") {
-                if (giveRewardPoints) {
-                    findClient.rewardPointsEarned = findClient.rewardPointsEarned + findService.rewardPoints;
-                    await findClient.save();
-                }
-                findStaff.incentive = findService.staffIncentive + findStaff.incentive;
-                await findStaff.save();
-            }
-
-            response.successResponse(res, savedBill, 'Saved bill successfully');
-        }
-        else {
-            response.internalServerError(res, "Failed to generate the bill");
-        }
-    }
-    else {
-        response.notFoundError(res, 'Cannot find the client');
+    if (!findClient) {
+        return response.notFoundError(res, 'Cannot find the client');
     }
 
+    const newBill = new billingDB({
+        billType,
+        products,
+        toGiveIncentive,
+        clientName,
+        clientNumber,
+        timeOfBilling,
+        subTotal,
+        discount,
+        totalAmount,
+        paidDues,
+        advancedGiven,
+        branchDetails,
+        price,
+        appointmentId,
+        giveRewardPoints
+    })
+    // const saveBill = await newBill.save();
+    // if (!saveBill) {
+    //     return response.internalServerError(res, "Cannot save the bill");
+    // }
+    var flag = 0;
+    if (giveRewardPoints) {
+        findClient.rewardPointsEarned = findClient.rewardPointsEarned + findAppointment.serviceSelected.rewardPoints;
+        const saveClient = await findClient.save();
+        if (!saveClient) {
+            // const deleteBill=await billingDB.findByIdAndDelete({_id:saveBill._id});
+            // response.internalServerError(res,"Failed to create bill");
+            flag = 1;
+        }
+    }
+    //product incentive me dikkat ho raha .
+    if(toGiveIncentive==true){
+        const findStaff=await staffDB.findById({_id:findAppointment.serviceProvider._id});
+        if(!findStaff){
+            flag=1;
+        }
+        findStaff.incentive=findStaff.incentive+productIncentive;
+        const savedStaff=await findStaff.save();
+        if(!savedStaff){
+            flag=1;
+        }
+    }
+
+    if (flag == 1) {
+        return response.internalServerError(res, "Cannot generate the bill");
+    }
+
+    const saveBill = await newBill.save();
+    if (!saveBill) {
+        return response.internalServerError(res, "Cannot save the bill");
+    }
+    const findBill = await billingDB.findById({ _id: saveBill._id }).populate("appointmentId");
+    if (!findBill) {
+        return response.internalServerError(res, "Failed to save the bill");
+    }
+    response.successResponse(res, findBill, 'Saved the bill successfully');
 })
+//get all bills
 const getAllBills = asynchandler(async (req, res) => {
 
 
@@ -73,7 +93,7 @@ const getAllBills = asynchandler(async (req, res) => {
         populate: {
             path: "serviceSelected serviceProvider"
         }
-    }).populate("serviceSelected").populate("branchDetails");
+    }).populate("products.product").populate("branchDetails");
     if (allData) {
         response.successResponse(res, allData, "Successfully fetched all the bills");
 
@@ -83,6 +103,7 @@ const getAllBills = asynchandler(async (req, res) => {
     }
 })
 
+//get a client bill
 const getAClientBill = asynchandler(async (req, res) => {
     const { clientNumber } = req.params;
     if (!clientNumber) {
@@ -94,7 +115,7 @@ const getAClientBill = asynchandler(async (req, res) => {
         populate: {
             path: "serviceSelected serviceProvider"
         }
-    }).populate("serviceSelected").populate('branchDetails');
+    }).populate("products.product").populate('branchDetails');
     if (findAllBills) {
         response.successResponse(res, findAllBills, 'Successfully fetched all the bills');
     }
@@ -102,14 +123,11 @@ const getAClientBill = asynchandler(async (req, res) => {
         response.internalServerError(res, 'Failed to fetch the bills');
     }
 })
-
+//get total bill amount 
 const getTotalSalesAmount = asynchandler(async (req, res) => {
 
 
     const result = await billingDB.aggregate([
-        {
-            $match: { billStatus: 'PAID' }
-        },
         {
             $group: {
                 _id: null,
@@ -133,6 +151,7 @@ const getTotalSalesAmount = asynchandler(async (req, res) => {
 
 })
 
+//get total sales amount by branch
 const getTotalSalesAmountByBranch = asynchandler(async (req, res) => {
     const { branchId } = req.params;
     if (branchId == ":branchId") {
@@ -141,7 +160,7 @@ const getTotalSalesAmountByBranch = asynchandler(async (req, res) => {
     const checkId = new mongoose.Types.ObjectId(branchId)
     const result = await billingDB.aggregate([
         {
-            $match: { billStatus: 'PAID', branchDetails: checkId }
+            $match: {branchDetails: checkId }
         },
         {
             $group: {
@@ -167,135 +186,61 @@ const getTotalSalesAmountByBranch = asynchandler(async (req, res) => {
 
 })
 
-const updateBillDetails = asynchandler(async (req, res) => {
-    const { quantity, timeOfBilling, price, serviceFor, serviceSelected,giveRewardPoints, subtotal, discount, totalAmount, paidDues, advancedGiven } = req.body;
+//get branch wise bill
+const getBranchwiseBills = asynchandler(async (req, res) => {
+    const { branchId } = req.params;
+    if (branchId == ':branchId') {
+        return response.validationError(res, "Cannot get a branch without its id");
+    }
+
+
+    const allData = await billingDB.find({ branchDetails: branchId }).populate({
+        path: "appointmentId",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    }).populate("products.product").populate("branchDetails");
+    if (allData) {
+        response.successResponse(res, allData, "Successfully fetched all the datas");
+
+    }
+    else {
+        response.internalServerError(res, 'Error in fetching all the datas');
+    }
+})
+
+//get particular bill
+const getParticularBill = asynchandler(async (req, res) => {
     const { billId } = req.params;
     if (!billId) {
-        return response.validationError(res, 'Please enter all the fields');
+        return response.validationError(res, 'Cannot delete bill if id is not given');
     }
-    const findBill = await billingDB.findById({ _id: billId });
+    const findBill = await billingDB.findById({ _id: billId }).populate({
+        path: "appointmentId",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    }).populate("products.product").populate("branchDetails");;
     if (findBill) {
-        const updateData = {};
-        if (quantity) {
-            updateData.quantity = quantity;
-        }
-        if (timeOfBilling) {
-            updateData.timeOfBilling = timeOfBilling;
-        }
-        if (price) {
-            updateData.price = price;
-        }
-        if (serviceFor) {
-            updateData.serviceFor = serviceFor;
-        }
-        if (serviceSelected) {
-            updateData.serviceSelected = serviceSelected;
-        }
-        if (durationOfAppointment) {
-            updateData.durationOfAppointment = durationOfAppointment;
-        }
-        if (appointmentStatus) {
-            updateData.appointmentStatus = appointmentStatus;
-        }
-        if (giveRewardPoints) {
-            updateData.giveRewardPoints = giveRewardPoints;
-        }
-        if (subtotal) {
-            updateData.subtotal = subtotal;
-        }
-        if (discount) {
-            updateData.discount = discount;
-        }
-        if (totalAmount) {
-            updateData.totalAmount = totalAmount;
-        }
-        if (paidDues) {
-            updateData.paidDues = paidDues;
-        }
-        if (advancedGiven) {
-            updateData.advancedGiven = advancedGiven;
-        }
-        const updatedBill = await billingDB.findByIdAndUpdate({ _id: billId }, updateData, { new: true });
-        if (updatedBill) {
-            response.successResponse(res, updatedBill, 'Successfully update the bills')
-        }
-        else {
-            response.internalServerError(res, 'Failed to update the bill');
-        }
-
+        response.successResponse(res, findBill, 'Successfully found the bill');
     }
     else {
-        response.notFoundError(res, 'Cannot find the bills')
-    }
-
-
-})
-
-
-const updateBillStatus = asynchandler(async (req, res) => {
-    const { paymentDetails, paidDues, billStatus, giveRewardPoints } = req.body;
-    const billId = req.params.billId;
-    if (!billId) {
-        return response.validationError(res, 'Cannnot find the bill id');
-    }
-    const findBill = await billingDB.findById({ _id: billId });
-    if (findBill) {
-        const updateData = {};
-        if (paymentDetails) {
-            updateData.paymentDetails = paymentDetails;
-        }
-        if (paidDues) {
-            updateData.paidDues = paidDues;
-
-        }
-        if (billStatus) {
-            updateData.billStatus = billStatus;
-
-        }
-        if (giveRewardPoints) {
-            updateData.giveRewardPoints = giveRewardPoints;
-        }
-        const findStaff = await staffDB.findById({ _id: findBill.serviceProvider });
-        if (!findStaff) {
-            return response.notFoundError(res, 'Cannot find the Staff');
-        }
-        const findClient = await clientDB.findOne({ clientNumber: findBill.clientNumber });
-        if (!findClient) {
-            return response.notFoundError(res, 'Cannot find the client');
-        }
-        const findService = await serviceDB.findById({ _id: findBill.serviceSelected });
-        const updatedBill = await billingDB.findByIdAndUpdate({ _id: billId }, updateData, { new: true });
-        if (updatedBill) {
-
-            if (billStatus == "PAID") {
-                if (giveRewardPoints) {
-                    findClient.rewardPointsEarned = findClient.rewardPointsEarned + findService.rewardPoints;
-                    await findClient.save();
-                }
-                findStaff.incentive = findService.staffIncentive + findStaff.incentive;
-                await findStaff.save();
-
-            }
-
-            response.successResponse(res, updatedBill, 'Successfully updated the bills');
-
-        }
-
-        else {
-            response.internalServerError(res, 'Failed to update the bill')
-        }
-    }
-    else {
-        response.notFoundError(res, 'Cannot find the specified bill')
+        response.notFoundError(res, "Cannot find the specified bill");
     }
 })
 
+//delete bill
 const deleteBill = asynchandler(async (req, res) => {
     const { billId } = req.params;
     if (!billId) {
         return response.validationError(res, 'Cannot delete bill if id is not given');
     }
-    const findBill = await billingDB.findById({ _id: billId });
+    const findBill = await billingDB.findById({ _id: billId }).populate({
+        path: "appointmentId",
+        populate: {
+            path: "serviceSelected serviceProvider"
+        }
+    }).populate("products.product").populate("branchDetails");;
     if (findBill) {
         const deletedBill = await billingDB.findByIdAndDelete({ _id: billId });
         if (deletedBill) {
@@ -309,25 +254,5 @@ const deleteBill = asynchandler(async (req, res) => {
         response.notFoundError(res, "Cannot find the specified bill");
     }
 })
-const getBranchwiseBills = asynchandler(async (req, res) => {
-    const { branchId } = req.params;
-    if (branchId == ':branchId') {
-        return response.validationError(res, "Cannot get a branch without its id");
-    }
 
-
-    const allData = await billingDB.find({ branchDetails: branchId }).populate({
-        path: "appointmentId",
-        populate: {
-            path: "serviceSelected serviceProvider"
-        }
-    }).populate("serviceSelected").populate("branchDetails");
-    if (allData) {
-        response.successResponse(res, allData, "Successfully fetched all the datas");
-
-    }
-    else {
-        response.internalServerError(res, 'Error in fetching all the datas');
-    }
-})
-module.exports = { test, createBill, getAllBills, getAClientBill, getTotalSalesAmount, updateBillStatus, updateBillDetails, deleteBill, getBranchwiseBills, getTotalSalesAmountByBranch }; 
+module.exports = { test,createBill,getAllBills,getAClientBill,getParticularBill,getTotalSalesAmount,getTotalSalesAmountByBranch,deleteBill,getBranchwiseBills }

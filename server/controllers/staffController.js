@@ -273,7 +273,7 @@ const assignAppointment = asynchandler(async (req, res) => {
     if (!appointmentId || staffId == ":staffId") {
         return response.validationError(res, 'Cannot assign appointment without the  details');
     }
-    const findAppointment = await appointmentDB.findById({ appointmentId: appointmentId }).populate("serviceSelected").populate("branchDetails");;
+    const findAppointment = await appointmentDB.findById({ _id: appointmentId }).populate("serviceSelected").populate("branchDetails");;
     if (!findAppointment) {
         return response.notFoundError(res, 'Cannot find the appointment');
     }

@@ -13,27 +13,9 @@ const test = asynchandler(async (req, res) => {
 
 //WE WILL NOT THE STAFF ID AT APPOINTMENT
 const createAppointment = asynchandler(async (req, res) => {
-    const { clientName, clientNumber, timeOfAppointment, dateOfAppointment, serviceFor, serviceSelected, durationOfAppointment, appointmentStatus, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails } = req.body;
+    const { clientName, clientNumber, timeOfAppointment, dateOfAppointment, serviceSelected, sourceOfAppointment, branchDetails } = req.body;
     console.log(req.body);
-    if (!clientName ||
-        !clientNumber ||
-        !timeOfAppointment ||
-        !serviceFor ||
-        !serviceSelected ||
-        !durationOfAppointment ||
-        !appointmentStatus ||
-        !branchDetails ||
-        subTotal === undefined ||
-        subTotal === null ||
-        discount === undefined ||
-        discount === null ||
-        totalAmount === undefined ||
-        totalAmount === null ||
-        paidDues === undefined ||
-        paidDues === null ||
-        advancedGiven === undefined ||
-        advancedGiven == null ||
-        !dateOfAppointment) {
+    if (!clientName||! clientNumber||! timeOfAppointment||! dateOfAppointment||! serviceSelected||! sourceOfAppointment||! branchDetails) {
         return response.validationError(res, 'Please enter the required details');
     }
     const findClient = await clientDB.findOne({ clientNumber: clientNumber });
@@ -45,18 +27,9 @@ const createAppointment = asynchandler(async (req, res) => {
         clientName,
         clientNumber,
         timeOfAppointment,
-        serviceFor,
-        serviceSelected,
-        durationOfAppointment,
-        appointmentStatus,
-        giveRewardPoints,
-        subTotal,
-        discount,
-        totalAmount,
-        paidDues,
-        advancedGiven,
         dateOfAppointment,
-        branchDetails
+        serviceSelected,
+        sourceOfAppointment
     })
     const savedAppointment = await newAppointment.save();
     console.log("hehehehheheh222");
@@ -80,40 +53,13 @@ const updateAppointment = asynchandler(async (req, res) => {
     if (!findAppointment) {
         return response.notFoundError(res, "cannot find the appointment");
     }
-    const { timeOfAppointment, dateOfAppointment, serviceProvider, serviceFor, serviceSelected, durationOfAppointment, appointmentStatus, giveRewardPoints, subTotal, discount, totalAmount, paidDues, advancedGiven, branchDetails } = req.body;
+    const { timeOfAppointment, dateOfAppointment, serviceSelected, } = req.body;
     const updateData = {};
     if (timeOfAppointment) {
         updateData.timeOfAppointment = timeOfAppointment
-    }
-    if (serviceProvider) {
-        updateData.serviceProvider = serviceProvider
-    }
-    if (serviceFor) {
-        updateData.serviceFor = serviceFor
-    }
+    }  
     if (serviceSelected) {
         updateData.serviceSelected = serviceSelected
-    }
-    if (durationOfAppointment) {
-        updateData.durationOfAppointment = durationOfAppointment
-    }
-    if (giveRewardPoints) {
-        updateData.giveRewardPoints = giveRewardPoints
-    }
-    if (subTotal) {
-        updateData.subTotal = subTotal
-    }
-    if (discount) {
-        updateData.discount = discount
-    }
-    if (totalAmount) {
-        updateData.totalAmount = totalAmount
-    }
-    if (paidDues) {
-        updateData.paidDues = paidDues
-    }
-    if (advancedGiven) {
-        updateData.advancedGiven = advancedGiven
     }
     if (dateOfAppointment) {
         updateData.dateOfAppointment = dateOfAppointment
@@ -142,6 +88,14 @@ const updateAppointmentStatus = asynchandler(async (req, res) => {
         return response.notFoundError(res, "cannot find the appointment");
     }
     findAppointment.appointmentStatus = status;
+    if(status==="COMPLETE"){
+        const findStaff=await staffDB.findById({_id:findAppointment.serviceProvider._id});
+        if(!findStaff){
+            return response.internalServerError(res,"Cannot findStaff");
+        }
+        findStaff.incentive=findStaff.incentive+findAppointment.serviceSelected.staffIncentive;
+        await findStaff.save();
+    }
     await findAppointment.save();
     response.successResponse(res, findAppointment, 'Updated the status successfully');
 })
