@@ -1,6 +1,7 @@
 const billingDB = require("../models/billingModel");
 const clientDB = require("../models/clientModel");
-const staffDB=require("../models/staffModel");
+const staffDB = require("../models/staffModel");
+const productDB = require("../models/productModel")
 const appointmentDB = require("../models/appointmentModel");
 const response = require("../middlewares/responseMiddleware");
 const asynchandler = require("express-async-handler");
@@ -13,7 +14,7 @@ const test = asynchandler(async (req, res) => {
 
 //create bill
 const createBill = asynchandler(async (req, res) => {
-    const { billType, products, toGiveIncentive, clientName, clientNumber, discount, appointmentId, timeOfBilling, totalAmount, paidDues, advancedGiven, subTotal, giveRewardPoints, price, branchDetails,productIncentive } = req.body;
+    const { billType, products, toGiveIncentive, clientName, clientNumber, discount, appointmentId, timeOfBilling, totalAmount, paidDues, advancedGiven, subTotal, giveRewardPoints, price, branchDetails, productIncentive } = req.body;
     if (!billType || !clientName || clientNumber == undefined || clientNumber == null || !timeOfBilling || subTotal === undefined || subTotal === null || totalAmount === undefined || totalAmount === null || paidDues === undefined || paidDues === null || advancedGiven === undefined || advancedGiven == null || !branchDetails || price == undefined || price == null || !appointmentId) {
         return response.validationError(res, "Failed to create a bill without proper details");
     }
@@ -57,23 +58,37 @@ const createBill = asynchandler(async (req, res) => {
             flag = 1;
         }
     }
-    //product incentive me dikkat ho raha .
-    if(toGiveIncentive==true){
-        const findStaff=await staffDB.findById({_id:findAppointment.serviceProvider._id});
-        if(!findStaff){
-            flag=1;
+    if (toGiveIncentive == true) {
+        const findStaff = await staffDB.findById({ _id: findAppointment.serviceProvider._id });
+        if (!findStaff) {
+            flag = 1;
         }
-        findStaff.incentive=findStaff.incentive+productIncentive;
-        const savedStaff=await findStaff.save();
-        if(!savedStaff){
-            flag=1;
+        findStaff.incentive = findStaff.incentive + productIncentive;
+        const savedStaff = await findStaff.save();
+        if (!savedStaff) {
+            flag = 1;
         }
     }
-
+    if (products) {
+        function updateProductQuantities() {
+            products.forEach(async (productObj) => {
+                try {
+                    const product = await productDB.findById({ _id: productObj.product });
+                    if (product.unit >= productObj.quantity) {
+                        product.unit = product.unit - productObj.quantity;
+                    }
+                    await product.save();
+                } catch (err) {
+                    flag = 1;
+                    console.error("Error updating product quantity:", err);
+                }
+            });
+        }
+        updateProductQuantities();
+    }
     if (flag == 1) {
         return response.internalServerError(res, "Cannot generate the bill");
     }
-
     const saveBill = await newBill.save();
     if (!saveBill) {
         return response.internalServerError(res, "Cannot save the bill");
@@ -160,7 +175,7 @@ const getTotalSalesAmountByBranch = asynchandler(async (req, res) => {
     const checkId = new mongoose.Types.ObjectId(branchId)
     const result = await billingDB.aggregate([
         {
-            $match: {branchDetails: checkId }
+            $match: { branchDetails: checkId }
         },
         {
             $group: {
@@ -255,4 +270,4 @@ const deleteBill = asynchandler(async (req, res) => {
     }
 })
 
-module.exports = { test,createBill,getAllBills,getAClientBill,getParticularBill,getTotalSalesAmount,getTotalSalesAmountByBranch,deleteBill,getBranchwiseBills }
+module.exports = { test, createBill, getAllBills, getAClientBill, getParticularBill, getTotalSalesAmount, getTotalSalesAmountByBranch, deleteBill, getBranchwiseBills }
