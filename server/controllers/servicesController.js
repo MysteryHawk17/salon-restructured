@@ -50,7 +50,7 @@ const updateCategory = asynchandler(async (req, res) => {
         return response.validationError(res, "Failed to find the category successfully");
     }
     const { name } = req.body;
-    if(name){
+    if (name) {
 
         findCategory.name = name;
     }
@@ -99,8 +99,14 @@ const createService = asynchandler(async (req, res) => {
     findBranch.services.push(newService._id);
     await findBranch.save();
     const savedService = await newService.save();
+
     if (savedService) {
-        response.successResponse(res, savedService, 'Successfully saved the services');
+        const findService = await serviceDB.findById({ _id: savedService._id }).populate("category").populate("branchDetails");;
+        if (!findService) {
+            return response.internalServerError(res, 'Failed to saved the service');
+        }
+
+        response.successResponse(res, findService, 'Successfully saved the services');
     }
     else {
         response.internalServerError(res, 'Error in saving the response');
@@ -113,7 +119,7 @@ const getAllServicesByBranch = asynchandler(async (req, res) => {
     const { branchId } = req.params;
     if (!branchId || branchId == ":branchId") { return response.validationError(res, 'Cannot find the branch services without the branch id') }
 
-    const findAllServices = await serviceDB.find({ branchDetails: branchId }).populate('branchDetails');
+    const findAllServices = await serviceDB.find({ branchDetails: branchId }).populate('branchDetails').populate("category")
     if (findAllServices) {
         response.successResponse(res, findAllServices, 'Fetched services for the branch');
     }
@@ -127,7 +133,7 @@ const getAService = asynchandler(async (req, res) => {
     if (!serviceId) {
         return response.validationError(res, 'Cannot find the service without its id');
     }
-    const findService = await serviceDB.findById({ _id: serviceId }).populate("branchDetails");
+    const findService = await serviceDB.findById({ _id: serviceId }).populate("branchDetails").populate("category");
     if (findService) {
         response.successResponse(res, findService, 'Successfully fetched the data');
     }
@@ -140,7 +146,7 @@ const deleteService = asynchandler(async (req, res) => {
     if (!serviceId) {
         return response.validationError(res, 'Cannot find Service without its id');
     }
-    const findService = await serviceDB.findById({ _id: serviceId }).populate("branchDetails");
+    const findService = await serviceDB.findById({ _id: serviceId }).populate("branchDetails").populate("category");
     if (findService) {
         const deletedService = await serviceDB.findByIdAndDelete({ _id: serviceId });
         const findBranch = await branchDB.findByIdAndUpdate({ _id: findService.branchDetails._id }, {
@@ -165,7 +171,7 @@ const updateService = asynchandler(async (req, res) => {
     if (!serviceId) {
         return response.validationError(res, 'Cannot find Service without its id');
     }
-    const findService = await serviceDB.findById({ _id: serviceId }).populate("branchDetails");
+    const findService = await serviceDB.findById({ _id: serviceId }).populate("branchDetails").populate("category");
     if (findService) {
         const updateData = {};
         const { serviceName, category, duration, price, membershipPrice, rewardPoints, serviceFor, staffIncentive } = req.body;
@@ -195,7 +201,13 @@ const updateService = asynchandler(async (req, res) => {
         }
         const updatedService = await serviceDB.findByIdAndUpdate({ _id: serviceId }, updateData, { new: true });
         if (updatedService) {
-            response.successResponse(res, updatedService, 'Successfully updated the service');
+            const findService = await serviceDB.findById({ _id: savedService._id }).populate("category").populate("branchDetails");
+            if (!findService) {
+                response.successResponse(res, updatedService, 'Successfully updated the service');
+            }
+
+            response.successResponse(res, findService, 'Successfully updated the services');
+
         }
         else {
             response.internalServerError(res, 'Failed to update the service');
@@ -209,4 +221,4 @@ const updateService = asynchandler(async (req, res) => {
 })
 
 
-module.exports = { test, createService, updateService, deleteService, getAService, getAllServicesByBranch ,createCategory,getAllCategory,getACategory,deleteCategory,updateCategory};
+module.exports = { test, createService, updateService, deleteService, getAService, getAllServicesByBranch, createCategory, getAllCategory, getACategory, deleteCategory, updateCategory };
