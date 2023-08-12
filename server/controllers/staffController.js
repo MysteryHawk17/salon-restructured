@@ -122,10 +122,17 @@ const deleteStaff = asynchandler(async (req, res) => {
             path: "serviceSelected serviceProvider"
         }
     });
+    console.log(findStaff)
     if (findStaff) {
-        const deleteFromCloud = await cloudinary.uploader.destroy(findStaff.idProof)
-        const deleteFromCloud2 = await cloudinary.uploader.destroy(findStaff.displayImg);
+        if (findStaff.idProof !== '') {
+             const deleteFromCloud = await cloudinary.uploader.destroy(findStaff.idProof)
+        }
+        if (findStaff.displayImg !== "") {
+
+            const deleteFromCloud2 = await cloudinary.uploader.destroy(findStaff.displayImg);
+        }
         const deletedStaff = await staffDB.findByIdAndDelete({ _id: staffId });
+
         if (deletedStaff) {
             const findBranch = await branchDB.findByIdAndUpdate({ _id: findStaff.branchDetails._id }, {
                 $pull: { staffs: deletedStaff._id }
@@ -134,6 +141,7 @@ const deleteStaff = asynchandler(async (req, res) => {
         }
         else {
             response.internalServerError(res, 'Error deleting the staff');
+
         }
     }
 
