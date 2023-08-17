@@ -1,4 +1,5 @@
 const ownerDB = require("../models/salonOwnerModel");
+const branchDB=require("../models/branchModel.js");
 const response = require("../middlewares/responseMiddleware");
 const asynchandler = require('express-async-handler');
 const jwt = require("../utils/jwt")
@@ -143,4 +144,19 @@ const deleteOwner = asynchandler(async (req, res) => {
         response.notFoundError(res, 'Cannot find the specified owner');
     }
 })
-module.exports = { test, createOwner, loginOwner, updateOwner, getAllOwners, getAowner, deleteOwner };
+
+//get parent branch
+const findParentBranch=asynchandler(async(req,res)=>{
+    const {ownerId}=req.params;
+    if(ownerId==":ownerId"){
+        return response.internalServerError(res,'Owner id is required');
+    }
+    const findParentBranch=await branchDB.find({ownerId:ownerId,parentBranch:undefined}).populate("ownerId").populate("staffs").populate("staffs").populate("services").populate("products").populate("parentBranch").populate({
+        path: "subscriptionDetails.subscription"
+    });;
+    if(!findParentBranch){
+        return response.internalServerError(res,'Failed to fetch the parent branch');
+    }
+    response.successResponse(res,findParentBranch,'Founnd the branch successfully');
+})
+module.exports = { test, createOwner, loginOwner, updateOwner, getAllOwners, getAowner, deleteOwner,findParentBranch };
