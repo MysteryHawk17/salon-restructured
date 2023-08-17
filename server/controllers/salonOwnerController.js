@@ -28,9 +28,13 @@ const createOwner = asynchandler(async (req, res) => {
     const savedOwner = await newOwner.save();
 
     if (savedOwner) {
-        const token = jwt(savedOwner._id);
+        const findOwner=await ownerDB.findById({_id:savedOwner._id}).populate("branch");
+        if(!findOwner){
+            return response.internalServerError(res,'Failed to create owner');
+        }
+        const token = jwt(findOwner._id);
         const result = {
-            owner: savedOwner,
+            owner: findOwner,
             token: token
         };
         response.successResponse(res, result, 'Successfully saved the Owner');
@@ -45,7 +49,7 @@ const loginOwner = asynchandler(async (req, res) => {
     if (!email || !password) {
         return response.validationError(res, "Cannot login without proper information");
     }
-    const findUser = await ownerDB.findOne({ email: email });
+    const findUser = await ownerDB.findOne({ email: email }).populate("branch");
     if (findUser) {
         const comparePassword = await bcrypt.compare(password, findUser.password);
         if (comparePassword) {
@@ -66,7 +70,7 @@ const loginOwner = asynchandler(async (req, res) => {
 })
 //getallowners
 const getAllOwners = asynchandler(async (req, res) => {
-    const allowners = await ownerDB.find();
+    const allowners = await ownerDB.find().populate("branch");
     if (allowners) {
         response.successResponse(res, allowners, "Successfully fetched all the owner");
     }
@@ -82,7 +86,7 @@ const getAowner = asynchandler(async (req, res) => {
         return response.validationError(res, 'Cannot get a owner without its id');
 
     }
-    const getowner = await ownerDB.findById({ _id: id })
+    const getowner = await ownerDB.findById({ _id: id }).populate("branch")
     if (getowner) {
         response.successResponse(res, getowner, "Fetched the owner");
     }
