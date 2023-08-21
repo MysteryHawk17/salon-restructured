@@ -68,7 +68,7 @@ const getClientByNumber = asynchandler(async (req, res) => {
     if (clientNumber == ":clientNumber")
         return response.validationError(res, 'Cannot find client without its number');
 
-    const findClient = await clientDB.findOne({ clientNumber: clientNumber })
+    const findClient = await clientDB.findOne({ clientNumber: clientNumber }).populate("appointmentDetails")
     if (findClient) {
         response.successResponse(res, findClient, "Successfully found the client");
     }
