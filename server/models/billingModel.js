@@ -16,25 +16,27 @@ const billingSchema = mongoose.Schema({
 
         }
     }],
-    toGiveIncentive: {
-        type: Boolean
-    },
     clientName: {
         type: String,
         required: true
     },
     clientNumber: {
-        type: Number,
+        type: String,
         required: true
+    },
+    dateOfAppointment: {
+        type: String
+    },
+    timeOfAppointment: {
+        type: Object
     },
     discount: {
         type: Number
     },
-    appointmentId: {
+    serviceSelected: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Appointment"
-    },
-    
+        ref: "Service"
+    }],
     timeOfBilling: {
         type: String
     },
@@ -50,10 +52,10 @@ const billingSchema = mongoose.Schema({
         type: Number,
         required: true
     },
-    subTotal: {
-        type: Number,
-        required: true
-    },
+    // subTotal: {
+    //     type: Number,
+    //     required: true
+    // },
     giveRewardPoints: {
         type: Boolean,
         default: false

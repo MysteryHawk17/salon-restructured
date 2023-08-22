@@ -8,7 +8,7 @@ const clientSchema = mongoose.Schema({
         required: true
     },
     clientNumber: {
-        type: Number,
+        type: String,
         required: true
     },
     clientEmail: {

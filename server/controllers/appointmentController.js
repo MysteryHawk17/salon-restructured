@@ -32,15 +32,15 @@ const createAppointment = asynchandler(async (req, res) => {
                 sourceOfAppointment,
                 branchDetails
             });
-    
+
             const savedAppointment = await newAppointment.save();
-    
+
             if (!savedAppointment) {
                 return response.internalServerError(res, 'Failed to create the appointment');
             }
-    
+
             const findAppointment = await appointmentDB.findById(savedAppointment._id).populate("branchDetails").populate("serviceProvider").populate("serviceSelected");
-    
+
             findClient.appointmentDetails.push(savedAppointment._id);
             await findClient.save();
             createdAppointment.push(findAppointment);
@@ -200,4 +200,57 @@ const userAppointments = asynchandler(async (req, res) => {
     response.successResponse(res, findAllAppointments, 'Successfully fetched the appointments');
 })
 
-module.exports = { test, createAppointment, updateAppointment, updateAppointmentStatus, getAllAppointment, getParticularAppointment, getBranchwiseAppointment, getStaffwiseAppointment, userAppointments };
+
+const userAppointmentsDatewise = asynchandler(async (req, res) => {
+    const { clientNumber, date } = req.query;
+
+    const data = await appointmentDB.aggregate([
+        {
+            $match: {
+                dateOfAppointment: date,
+                clientNumber: clientNumber,
+                appointmentStatus:"COMPLETE"
+            }
+        },
+        {
+            $lookup: {
+                from: "services",
+                localField: "serviceSelected",
+                foreignField: "_id",
+                as: "selectedServices"
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    // date: "$dateOfAppointment",
+                    phone: "$clientNumber",
+                    clientName: "$clientName",
+                    date: "$dateOfAppointment",
+                    // timeOfAppointment: "$timeOfAppointment",
+                },
+                // appointments: {
+                //     $push: {
+                //     //   date: "$dateOfAppointment",
+                //     //   timeOfAppointment: "$timeOfAppointment",
+                //       selectedServices: "$selectedServices"
+                //       }
+                //   },
+                // selectedServices: "$selectedServices"
+                  
+                
+                selectedServices: {
+                    $push: "$selectedServices"
+                }
+            }
+        }
+    ]);
+    console.log(data);
+    if (!data) {
+        return response.internalServerError(res, 'Error in finding the data');
+    }
+    response.successResponse(res, data, 'Fetched the data successfully');
+
+
+})
+module.exports = { test, createAppointment, updateAppointment, updateAppointmentStatus, getAllAppointment, getParticularAppointment, getBranchwiseAppointment, getStaffwiseAppointment, userAppointments, userAppointmentsDatewise };
