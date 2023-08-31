@@ -125,7 +125,7 @@ const deleteStaff = asynchandler(async (req, res) => {
     console.log(findStaff)
     if (findStaff) {
         if (findStaff.idProof !== '') {
-             const deleteFromCloud = await cloudinary.uploader.destroy(findStaff.idProof)
+            const deleteFromCloud = await cloudinary.uploader.destroy(findStaff.idProof)
         }
         if (findStaff.displayImg !== "") {
 
@@ -164,7 +164,7 @@ const updateStaff = asynchandler(async (req, res) => {
     });
     if (findStaff) {
         const updateData = {};
-        const { name, dob, phone, mail, workingHrs, salary, emergencyDetails, gender, dateOfJoining, userType, department } = req.body;
+        const { name, dob, phone, mail, workingHrs, salary, emergencyDetails, gender, dateOfJoining, userType, department, incentive, target, allowIncentive } = req.body;
         if (name) {
             updateData.name = name;
         }
@@ -197,6 +197,15 @@ const updateStaff = asynchandler(async (req, res) => {
         }
         if (userType) {
             updateData.userType = userType;
+        }
+        if (incentive) {
+            updateData.incentive = incentive;
+        }
+        if (target) {
+            updateData.target = target;
+        }
+        if (allowIncentive !== undefined) {
+            updateData.allowIncentive = allowIncentive;
         }
         const updatedStaff = await staffDB.findByIdAndUpdate({ _id: staffId }, updateData, { new: true });
         if (updatedStaff) {

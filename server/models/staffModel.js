@@ -81,6 +81,14 @@ const staffSchema = mongoose.Schema({
         required: true,
         default: 0
     },
+    target: {
+        type: Number,
+        default: 0
+    },
+    allowIncentive: {
+        type: Boolean,
+        default: false
+    },
     appointments: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Appointment"

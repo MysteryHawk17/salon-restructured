@@ -13,14 +13,14 @@ const test = asynchandler(async (req, res) => {
 const createAppointment = asynchandler(async (req, res) => {
     const { clientName, clientNumber, gender, timeOfAppointment, dateOfAppointment, serviceSelected, sourceOfAppointment, branchDetails } = req.body;
     console.log(req.body);
-    var temp=0;
+    var temp = 0;
     var savedClient;
     if (!clientName || !clientNumber || !timeOfAppointment || !dateOfAppointment || !serviceSelected || !sourceOfAppointment || !branchDetails) {
         return response.validationError(res, 'Please enter the required details');
     }
     const findClient = await clientDB.findOne({ clientNumber: clientNumber });
     if (!findClient) {
-        temp=1;
+        temp = 1;
         const newClient = new clientDB({
             clientName: clientName,
             clientEmail: clientEmail,
@@ -54,21 +54,21 @@ const createAppointment = asynchandler(async (req, res) => {
             }
 
             const findAppointment = await appointmentDB.findById(savedAppointment._id).populate("branchDetails").populate("serviceProvider").populate("serviceSelected");
-            if(temp==1){
+            if (temp == 1) {
                 savedClient.appointmentDetails.push(savedAppointment._id);
                 await savedClient.save();
             }
-            else{
+            else {
                 findClient.appointmentDetails.push(savedAppointment._id);
                 await findClient.save();
             }
-            
+
             createdAppointment.push(findAppointment);
         }
         response.successResponse(res, createdAppointment, 'Successfully created the appointments')
     } catch (error) {
         console.log(error);
-        response.internalServerError(res, "Failed to create the client");
+        response.internalServerError(res, "Error occured");
     }
 })
 //update appointment
@@ -121,7 +121,10 @@ const updateAppointmentStatus = asynchandler(async (req, res) => {
         if (!findStaff) {
             return response.internalServerError(res, "Cannot findStaff");
         }
-        findStaff.incentive = findStaff.incentive + findAppointment.serviceSelected.staffIncentive;
+        findStaff.incentive = findStaff.incentive + findAppointment.serviceSelected.price;
+        if (findStaff.incentive >= findStaff.target) {
+            findStaff.allowIncentive = true;
+        }
         await findStaff.save();
     }
     await findAppointment.save();
