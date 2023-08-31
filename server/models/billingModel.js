@@ -28,7 +28,7 @@ const billingSchema = mongoose.Schema({
         type: String
     },
     timeOfAppointment: {
-        type: Object
+        type: String
     },
     discount: {
         type: Number

@@ -11,14 +11,27 @@ const test = asynchandler(async (req, res) => {
 })
 //create appointment
 const createAppointment = asynchandler(async (req, res) => {
-    const { clientName, clientNumber, timeOfAppointment, dateOfAppointment, serviceSelected, sourceOfAppointment, branchDetails } = req.body;
+    const { clientName, clientNumber, gender, timeOfAppointment, dateOfAppointment, serviceSelected, sourceOfAppointment, branchDetails } = req.body;
     console.log(req.body);
+    var temp=0;
+    var savedClient;
     if (!clientName || !clientNumber || !timeOfAppointment || !dateOfAppointment || !serviceSelected || !sourceOfAppointment || !branchDetails) {
         return response.validationError(res, 'Please enter the required details');
     }
     const findClient = await clientDB.findOne({ clientNumber: clientNumber });
     if (!findClient) {
-        return response.notFoundError(res, "Cannot find the client. Please register");
+        temp=1;
+        const newClient = new clientDB({
+            clientName: clientName,
+            clientEmail: clientEmail,
+            clientNumber: clientNumber,
+            clientAddress: clientAddress,
+            gender: gender
+        })
+        savedClient = await newClient.save();
+        if (!savedClient) {
+            return response.internalServerError(res, "Cannot create the client");
+        }
     }
     const createdAppointment = [];
     try {
@@ -30,7 +43,8 @@ const createAppointment = asynchandler(async (req, res) => {
                 dateOfAppointment,
                 serviceSelected: e,
                 sourceOfAppointment,
-                branchDetails
+                branchDetails,
+                gender
             });
 
             const savedAppointment = await newAppointment.save();
@@ -40,9 +54,15 @@ const createAppointment = asynchandler(async (req, res) => {
             }
 
             const findAppointment = await appointmentDB.findById(savedAppointment._id).populate("branchDetails").populate("serviceProvider").populate("serviceSelected");
-
-            findClient.appointmentDetails.push(savedAppointment._id);
-            await findClient.save();
+            if(temp==1){
+                savedClient.appointmentDetails.push(savedAppointment._id);
+                await savedClient.save();
+            }
+            else{
+                findClient.appointmentDetails.push(savedAppointment._id);
+                await findClient.save();
+            }
+            
             createdAppointment.push(findAppointment);
         }
         response.successResponse(res, createdAppointment, 'Successfully created the appointments')
@@ -50,9 +70,7 @@ const createAppointment = asynchandler(async (req, res) => {
         console.log(error);
         response.internalServerError(res, "Failed to create the client");
     }
-
 })
-
 //update appointment
 const updateAppointment = asynchandler(async (req, res) => {
     const { appointmentId } = req.params;
@@ -209,7 +227,7 @@ const userAppointmentsDatewise = asynchandler(async (req, res) => {
             $match: {
                 dateOfAppointment: date,
                 clientNumber: clientNumber,
-                appointmentStatus:"COMPLETE"
+                appointmentStatus: "COMPLETE"
             }
         },
         {
@@ -237,8 +255,8 @@ const userAppointmentsDatewise = asynchandler(async (req, res) => {
                 //       }
                 //   },
                 // selectedServices: "$selectedServices"
-                  
-                
+
+
                 selectedServices: {
                     $push: "$selectedServices"
                 }

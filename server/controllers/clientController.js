@@ -37,7 +37,7 @@ const createClient = asynchandler(async (req, res) => {
 
 //getallclient
 const getAllClients = asynchandler(async (req, res) => {
-    const allClients = await clientDB.find()
+    const allClients = await clientDB.find().populate("appointmentDetails")
     if (allClients) {
         response.successResponse(res, allClients, "Successfully fetched all the clients");
     }
@@ -52,7 +52,7 @@ const getClient = asynchandler(async (req, res) => {
     if (id == ":id") {
         return response.validationError(res, "Cannot find a client without its id");
     }
-    const findClient = await clientDB.findById({ _id: id })
+    const findClient = await clientDB.findById({ _id: id }).populate("appointmentDetails")
     if (findClient) {
         response.successResponse(res, findClient, 'Successfully found the client');
     }

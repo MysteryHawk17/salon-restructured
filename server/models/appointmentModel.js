@@ -19,7 +19,7 @@ const appointmentSchema = mongoose.Schema({
         ref: "Service"
     },
     timeOfAppointment: {
-        type: Object,
+        type: String,
     },
     serviceProvider: {
         type: mongoose.Schema.Types.ObjectId,
@@ -41,6 +41,9 @@ const appointmentSchema = mongoose.Schema({
     sourceOfAppointment: {
         type: String,
         required: true
+    },
+    gender:{
+        type:String
     }
 }, { timestamps: true });
 

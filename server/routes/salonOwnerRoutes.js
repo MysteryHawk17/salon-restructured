@@ -1,4 +1,4 @@
-const { test, createOwner, loginOwner, getAllOwners, getAowner, updateOwner, deleteOwner, findParentBranch } = require("../controllers/salonOwnerController");
+const { test, createOwner, loginOwner, getAllOwners, getAowner, updateOwner, deleteOwner, findParentBranch, resetpassword, forgotpassword, changePassword } = require("../controllers/salonOwnerController");
 
 const router = require("express").Router();
 
@@ -12,5 +12,7 @@ router.get("/getaowner/:id", getAowner);
 router.put("/updateowner/:id", updateOwner);
 router.delete("/deleteowner/:id", deleteOwner);
 router.get("/getparentbranch/:ownerId", findParentBranch);
-
+router.post("/forgotpassword",forgotpassword) 
+router.post("/resetpassword/:token",resetpassword);
+router.post("/changepassword/:userid",changePassword);
 module.exports = router;
