@@ -11,7 +11,7 @@ const test = asynchandler(async (req, res) => {
 })
 //create appointment
 const createAppointment = asynchandler(async (req, res) => {
-    const { clientName, clientNumber, gender, timeOfAppointment, dateOfAppointment, serviceSelected, sourceOfAppointment, branchDetails } = req.body;
+    const { clientName, clientNumber,clientAddress,clientEmail, gender, timeOfAppointment, dateOfAppointment, serviceSelected, sourceOfAppointment, branchDetails } = req.body;
     console.log(req.body);
     var temp = 0;
     var savedClient;
